@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ElevRoute — Route & Elevation Finder + Simulasi + Export</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+
+  <style>
+    :root {
+      --bg:      #0b0f0e;
+      --surface: #131918;
+      --panel:   #1a2220;
+      --border:  #2a3a36;
+      --accent:  #0fbf5598;
+      --accent2: #00c9ff;
+      --warn:    #ffb347;
+      --danger:  #ff5e5e;
+      --text:    #e8f0ee;
+      --muted:   #6b8a82;
+      --r:       12px;
+      --font-h:  'Syne', sans-serif;
+      --font-m:  'DM Mono', monospace;
+      --font-b:  'DM Sans', sans-serif;
+      --header-bg: rgba(11,15,14,.85);
+      --loading-bg: rgba(11,15,14,.85);
+      --status-bg:  rgba(11,15,14,.6);
+    }
+
+    body.light-mode {
+      --bg:        #f4f6f5;
+      --surface:   #ffffff;
+      --panel:     #f0f3f2;
+      --border:    #d4dedd;
+      --text:      #1a2622;
+      --muted:     #7a9a92;
+      --header-bg: rgba(255,255,255,.9);
+      --loading-bg: rgba(244,246,245,.9);
+      --status-bg:  rgba(240,243,242,.8);
+    }
+    body.light-mode body::before { display: none; }
+    body.light-mode .map-placeholder {
+      background:
+        repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(180,200,195,.4) 39px,rgba(180,200,195,.4) 40px),
+        repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(180,200,195,.4) 39px,rgba(180,200,195,.4) 40px);
+    }
+    body.light-mode .status-bar { background: var(--status-bg); }
+    body.light-mode header { background: var(--header-bg); }
+    body.light-mode .loading-overlay { background: var(--loading-bg); }
+    body.light-mode .error-panel { background: rgba(255,94,94,.05); }
+    body.light-mode .ctrl-card { background: rgba(255,255,255,.95); border-color: var(--border); }
+    body.light-mode .mobile-tabs { background: var(--surface); }
+
+    body, header, .sidebar, .route-card, .input-group input,
+    .opt-sel, .status-bar, .bottom-panel, .ctrl-card, .error-panel {
+      transition: background-color .25s, border-color .25s, color .25s;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:var(--font-b);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+    body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(ellipse 80% 60% at 70% 20%,rgba(61,255,154,.04) 0%,transparent 60%),radial-gradient(ellipse 60% 80% at 20% 80%,rgba(0,201,255,.04) 0%,transparent 60%);pointer-events:none;z-index:0}
+    .app{position:relative;z-index:1;display:flex;flex-direction:column;min-height:100vh}
+    header{padding:16px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);background:rgba(11,15,14,.85);backdrop-filter:blur(12px);position:sticky;top:0;z-index:100}
+    .logo{display:flex;align-items:center;gap:10px}
+    .logo-icon{width:30px;height:30px;background:var(--accent);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px}
+    .logo-text{font-family:var(--font-h);font-size:1.2rem;font-weight:800;letter-spacing:-.5px}
+    .logo-text span{color:var(--accent)}
+    .api-badge{font-family:var(--font-m);font-size:.68rem;padding:3px 9px;background:rgba(255,179,71,.1);border:1px solid rgba(255,179,71,.3);border-radius:999px;color:var(--warn)}
+
+    .header-right { display:flex; align-items:center; gap:10px; }
+    .theme-toggle {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 5px 12px 5px 8px;
+      cursor: pointer;
+      transition: all .2s;
+      user-select: none;
+    }
+    .theme-toggle:hover { border-color: var(--accent); }
+    .toggle-track {
+      width: 32px; height: 17px;
+      background: var(--border);
+      border-radius: 999px;
+      position: relative;
+      transition: background .25s;
+      flex-shrink: 0;
+    }
+    .toggle-track.on { background: var(--accent); }
+    .toggle-thumb {
+      width: 13px; height: 13px;
+      background: #fff;
+      border-radius: 50%;
+      position: absolute;
+      top: 2px; left: 2px;
+      transition: transform .25s;
+      box-shadow: 0 1px 3px rgba(0,0,0,.3);
+    }
+    .toggle-track.on .toggle-thumb { transform: translateX(15px); }
+    .toggle-label {
+      font-family: var(--font-m);
+      font-size: .68rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .toggle-icon { font-size: .85rem; }
+    main{flex:1;display:grid;grid-template-columns:380px 1fr;height:calc(100vh - 57px)}
+    .sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;padding:20px 18px;gap:18px}
+    .section-label{font-family:var(--font-m);font-size:.63rem;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
+    .input-group{position:relative;margin-bottom:10px}
+    .input-group label{display:block;font-family:var(--font-m);font-size:.68rem;color:var(--muted);margin-bottom:5px;letter-spacing:1px}
+    .input-group input{width:100%;background:var(--panel);border:1px solid var(--border);color:var(--text);padding:11px 13px 11px 40px;border-radius:var(--r);font-family:var(--font-b);font-size:.88rem;outline:none;transition:border-color .2s,box-shadow .2s}
+    .input-group input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(61,255,154,.07)}
+    .input-group input::placeholder{color:var(--muted)}
+    .input-icon{position:absolute;left:12px;bottom:12px;font-size:13px;pointer-events:none}
+    .api-input-field{font-family:var(--font-m)!important;font-size:.74rem!important;letter-spacing:.5px}
+    .connector-line{width:2px;height:24px;background:linear-gradient(to bottom,#ff5e5e,var(--accent));border-radius:2px;margin:4px 0 4px 12px}
+    .options-row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+    .opt-sel{background:var(--panel);border:1px solid var(--border);color:var(--text);padding:9px 11px;border-radius:var(--r);font-family:var(--font-b);font-size:.83rem;outline:none;cursor:pointer;width:100%}
+    .opt-sel:focus{border-color:var(--accent)}
+    .error-panel{display:none;background:rgba(255,94,94,.07);border:1px solid rgba(255,94,94,.3);border-radius:var(--r);padding:12px 14px;font-size:.78rem;line-height:1.65;color:#ff9a9a}
+    .error-panel.show{display:block}
+    .error-panel strong{display:block;color:var(--danger);font-family:var(--font-m);font-size:.72rem;margin-bottom:5px;letter-spacing:.5px}
+    .error-panel ol{padding-left:16px;margin-top:4px}
+    .error-panel li{margin-bottom:3px}
+    .error-panel code{font-family:var(--font-m);background:rgba(255,94,94,.12);padding:1px 5px;border-radius:4px;font-size:.7rem}
+    .error-panel a{color:var(--accent2);text-decoration:none}
+    .error-panel a:hover{text-decoration:underline}
+    .btn-primary{width:100%;padding:13px;background:var(--accent);color:#0b0f0e;border:none;border-radius:var(--r);font-family:var(--font-h);font-size:.92rem;font-weight:700;cursor:pointer;transition:transform .15s,box-shadow .15s,opacity .15s;letter-spacing:.3px}
+    .btn-primary:hover{transform:translateY(-1px);box-shadow:0 5px 20px rgba(61,255,154,.25)}
+    .btn-primary:active{transform:translateY(0)}
+    .btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none}
+    .status-bar{font-family:var(--font-m);font-size:.7rem;color:var(--muted);padding:7px 12px;background:rgba(11,15,14,.6);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;gap:7px}
+    .status-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);flex-shrink:0}
+    .status-dot.active{background:var(--accent);box-shadow:0 0 6px var(--accent);animation:pulse 1.5s infinite}
+    .status-dot.error{background:var(--danger)}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+    .divider{height:1px;background:var(--border);margin:2px 0}
+    .route-cards{display:flex;flex-direction:column;gap:9px}
+    .route-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:13px;cursor:pointer;transition:border-color .2s,box-shadow .2s;position:relative;overflow:hidden}
+    .route-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--muted);transition:background .2s}
+    .route-card:hover{border-color:rgba(61,255,154,.3)}
+    .route-card:hover::before{background:var(--accent)}
+    .route-card.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),inset 0 0 16px rgba(61,255,154,.04)}
+    .route-card.active::before{background:var(--accent)}
+    .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+    .card-title{font-family:var(--font-h);font-size:.83rem;font-weight:700}
+    .score-badge{font-family:var(--font-m);font-size:.68rem;padding:2px 7px;border-radius:999px}
+    .score-best{background:rgba(61,255,154,.15);color:var(--accent);border:1px solid rgba(61,255,154,.3)}
+    .score-mid{background:rgba(0,201,255,.1);color:var(--accent2);border:1px solid rgba(0,201,255,.3)}
+    .score-low{background:rgba(255,94,94,.1);color:var(--danger);border:1px solid rgba(255,94,94,.3)}
+    .card-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+    .stat-item{text-align:center}
+    .stat-val{font-family:var(--font-m);font-size:.8rem;font-weight:500;display:block}
+    .stat-label{font-size:.62rem;color:var(--muted)}
+    .stat-up{color:var(--danger)}
+    .stat-down{color:var(--accent2)}
+    .empty-state{text-align:center;padding:22px 12px;color:var(--muted);font-size:.78rem;font-family:var(--font-m)}
+    .empty-state .icon{font-size:1.8rem;margin-bottom:8px;display:block;opacity:.3}
+    .map-controls{
+      position:absolute;top:12px;right:12px;z-index:10;
+      display:none;
+      flex-direction:column;gap:6px;
+      align-items:flex-end;
+    }
+    .map-controls.visible{display:flex}
+    .ctrl-card{
+      background:rgba(19,25,24,.92);
+      backdrop-filter:blur(10px);
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:8px 10px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      box-shadow:0 4px 16px rgba(0,0,0,.5);
+    }
+    .ctrl-label{
+      font-family:var(--font-m);
+      font-size:.6rem;
+      letter-spacing:1.5px;
+      color:var(--muted);
+      text-transform:uppercase;
+      white-space:nowrap;
+    }
+    .ctrl-pills{display:flex;gap:3px}
+    .ctrl-pill{
+      font-family:var(--font-m);
+      font-size:.68rem;
+      padding:4px 9px;
+      background:transparent;
+      border:1px solid var(--border);
+      border-radius:6px;
+      color:var(--muted);
+      cursor:pointer;
+      transition:all .15s;
+      white-space:nowrap;
+    }
+    .ctrl-pill:hover{border-color:rgba(61,255,154,.4);color:var(--text)}
+    .ctrl-pill.active{background:rgba(61,255,154,.12);border-color:var(--accent);color:var(--accent)}
+    .ctrl-pill.active-blue{background:rgba(0,201,255,.12);border-color:var(--accent2);color:var(--accent2)}
+    .map-area{display:flex;flex-direction:column;position:relative}
+    #map{flex:1;min-height:0;display:none}
+    .map-placeholder{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted);background:repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(42,58,54,.3) 39px,rgba(42,58,54,.3) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(42,58,54,.3) 39px,rgba(42,58,54,.3) 40px)}
+    .placeholder-icon{font-size:2.8rem;opacity:.25}
+    .placeholder-text{font-family:var(--font-m);font-size:.78rem;opacity:.45}
+    .bottom-panel{height:210px;border-top:1px solid var(--border);background:var(--surface);padding:14px 18px;display:flex;flex-direction:column;gap:9px;position:relative}
+    .bottom-header{display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+    .bottom-title{font-family:var(--font-h);font-size:.88rem;font-weight:700}
+    .bottom-stats{display:flex;gap:18px;flex-wrap:wrap}
+    .b-stat{font-family:var(--font-m);font-size:.7rem}
+    .b-stat .val{font-weight:500}
+    .b-stat .lbl{color:var(--muted)}
+    #elevChart{flex:1;min-height:0;width:100%;height:100%}
+    .loading-overlay{display:none;position:absolute;inset:0;background:rgba(11,15,14,.85);backdrop-filter:blur(4px);align-items:center;justify-content:center;z-index:50;flex-direction:column;gap:14px}
+    .loading-overlay.show{display:flex}
+    .spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .loading-text{font-family:var(--font-m);font-size:.78rem;color:var(--accent)}
+
+    /* Tombol Export */
+    .export-btn {
+      margin-top: 8px;
+      padding: 4px 8px;
+      background: var(--accent);
+      border: none;
+      border-radius: 4px;
+      color: #0b0f0e;
+      font-size: 0.7rem;
+      font-family: var(--font-m);
+      cursor: pointer;
+      transition: opacity 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .export-btn:hover {
+      opacity: 0.8;
+    }
+    .export-btn:active {
+      transform: scale(0.98);
+    }
+
+    @media(max-width:860px) and (min-width:481px) {
+      main { grid-template-columns: 320px 1fr; }
+      .sidebar { padding: 16px 14px; gap: 14px; }
+      .ctrl-card { padding: 6px 8px; gap: 6px; }
+      .ctrl-pill { font-size:.62rem; padding:3px 7px; }
+    }
+
+    @media(max-width:480px) {
+      header { padding: 11px 14px; }
+      .logo-text { font-size: 1.05rem; }
+      main {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 50px);
+        overflow: hidden;
+      }
+      .mobile-tabs {
+        display: flex !important;
+        flex-shrink: 0;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+      }
+      .tab-btn {
+        flex: 1;
+        padding: 10px 8px;
+        background: transparent;
+        border: none;
+        border-bottom: 2px solid transparent;
+        color: var(--muted);
+        font-family: var(--font-m);
+        font-size: .72rem;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: color .15s, border-color .15s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+      }
+      .tab-btn.active {
+        color: var(--accent);
+        border-bottom-color: var(--accent);
+      }
+      .sidebar {
+        flex: 1;
+        min-height: 0;
+        max-height: none;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        overflow-y: auto;
+        padding: 14px 14px;
+        gap: 14px;
+        display: none;
+      }
+      .sidebar.tab-active { display: flex; }
+      .map-area {
+        flex: 1;
+        min-height: 0;
+        display: none;
+        flex-direction: column;
+      }
+      .map-area.tab-active { display: flex; }
+      #map { flex: 1; min-height: 0; }
+      .bottom-panel {
+        height: 185px;
+        padding: 10px 12px;
+        gap: 7px;
+        flex-shrink: 0;
+      }
+      .bottom-stats { gap: 10px; }
+      .b-stat { font-size:.65rem; }
+      .bottom-title { font-size:.82rem; }
+      .map-controls {
+        top: auto;
+        bottom: 200px;
+        right: 8px;
+      }
+      .ctrl-card { padding: 6px 8px; gap: 5px; }
+      .ctrl-pill { font-size:.62rem; padding:3px 6px; }
+      .ctrl-label { font-size:.55rem; }
+      .options-row { grid-template-columns: 1fr 1fr; }
+      .card-stats { grid-template-columns: repeat(4,1fr); }
+      .tab-badge {
+        background: var(--accent);
+        color: #0b0f0e;
+        font-size:.55rem;
+        font-weight:700;
+        padding:1px 5px;
+        border-radius:999px;
+        font-family:var(--font-m);
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="logo">
+      <div class="logo-icon">⛰</div>
+      <div class="logo-text">Elev<span>Route</span></div>
+    </div>
+    <div class="header-right">
+      <button class="theme-toggle" id="themeToggle" onclick="toggleAppMode()" title="Ganti tampilan Dark/Light">
+        <span class="toggle-icon" id="themeIcon">🌙</span>
+        <div class="toggle-track" id="toggleTrack">
+          <div class="toggle-thumb"></div>
+        </div>
+        <span class="toggle-label" id="themeLabel">Dark</span>
+      </button>
+      <span class="api-badge">Google Maps Platform Basorudin</span>
+    </div>
+  </header>
+
+  <main>
+    <div class="mobile-tabs" id="mobileTabs" style="display:none">
+      <button class="tab-btn active" id="tabRute" onclick="switchTab('rute')">
+        🗂 Rute <span class="tab-badge" id="tabBadge" style="display:none">0</span>
+      </button>
+      <button class="tab-btn" id="tabPeta" onclick="switchTab('peta')">
+        🗺 Peta
+      </button>
+    </div>
+    <div class="sidebar">
+
+      <div>
+        <div class="section-label">API Configuration</div>
+        <div class="input-group">
+          <label>GOOGLE MAPS API KEY</label>
+          <span class="input-icon">🔑</span>
+          <input class="api-input-field" type="password" id="apiKey" placeholder="AIzaSy..." autocomplete="off"/>
+        </div>
+        <div style="font-size:.71rem;color:var(--muted);font-family:var(--font-m);line-height:1.65;padding:0 2px">
+          Aktifkan di Cloud Console:
+          <code style="background:rgba(255,255,255,.06);padding:1px 5px;border-radius:4px">Maps JavaScript API</code> ·
+          <code style="background:rgba(255,255,255,.06);padding:1px 5px;border-radius:4px">Elevation API</code>
+        </div>
+      </div>
+
+      <div class="error-panel" id="errorPanel">
+        <strong id="errorTitle">⚠ ERROR</strong>
+        <div id="errorMsg"></div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div>
+        <div class="section-label">Rute</div>
+        <div class="input-group">
+          <label>TITIK ASAL</label>
+          <span class="input-icon">🔴</span>
+          <input type="text" id="origin" placeholder="Cth: Monas, Jakarta"/>
+        </div>
+        <div class="connector-line"></div>
+        <div class="input-group" style="margin-top:6px">
+          <label>TITIK TUJUAN</label>
+          <span class="input-icon">🟢</span>
+          <input type="text" id="destination" placeholder="Cth: Puncak, Bogor"/>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-label">Opsi</div>
+        <div class="options-row">
+          <div>
+            <div class="section-label">MODE</div>
+            <select class="opt-sel" id="travelMode">
+              <option value="DRIVING">🚗 Mobil</option>
+              <option value="MOTORCYCLE">🏍 Motor</option>
+              <option value="WALKING">🚶 Jalan Kaki</option>
+            </select>
+          </div>
+          <div>
+            <div class="section-label">SAMPEL ELEVASI</div>
+            <select class="opt-sel" id="samples">
+              <option value="128">128 titik</option>
+              <option value="256" selected>256 titik</option>
+              <option value="512">512 titik</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="status-bar" id="statusBar">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Masukkan API Key dan titik rute untuk memulai</span>
+      </div>
+
+      <button class="btn-primary" id="searchBtn" onclick="findRoutes()">
+        ⛰ Cari Rute + Profil Elevasi
+      </button>
+
+      <div class="divider"></div>
+
+      <div>
+        <div class="section-label">Hasil Rute (<span id="routeCount">0</span> alternatif)</div>
+        <div class="route-cards" id="routeCards">
+          <div class="empty-state">
+            <span class="icon">🗺</span>
+            Belum ada hasil pencarian
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="map-area">
+      <div id="map"></div>
+
+      <div class="map-controls" id="mapControls">
+        <div class="ctrl-card">
+          <span class="ctrl-label">Type</span>
+          <div class="ctrl-pills" id="typePills">
+            <button class="ctrl-pill" data-type="roadmap">Roadmap</button>
+            <button class="ctrl-pill active" data-type="terrain">Terrain</button>
+            <button class="ctrl-pill" data-type="satellite">Satellite</button>
+            <button class="ctrl-pill" data-type="hybrid">Hybrid</button>
+          </div>
+        </div>
+        <div class="ctrl-card">
+          <span class="ctrl-label">Style</span>
+          <div class="ctrl-pills" id="themePills">
+            <button class="ctrl-pill active" data-theme="dark">🌙 Dark</button>
+            <button class="ctrl-pill" data-theme="light">☀️ Light</button>
+            <button class="ctrl-pill" data-theme="night">🌃 Night</button>
+            <button class="ctrl-pill" data-theme="silver">🩶 Silver</button>
+          </div>
+        </div>
+        <!-- SIMULATION CONTROLS -->
+        <div class="ctrl-card" id="simulationControls" style="display:none;">
+          <span class="ctrl-label">Simulasi</span>
+          <button class="ctrl-pill" id="btnSimulate" disabled>▶ Jalankan</button>
+          <div style="display:flex; align-items:center; gap:4px; margin-left:4px;">
+            <span style="font-size:0.7rem;">⏱️</span>
+            <input type="range" id="speedSlider" min="5" max="30" value="15" step="1" style="width:70px;">
+          </div>
+        </div>
+      </div>
+      <div class="map-placeholder" id="mapPlaceholder">
+        <div class="placeholder-icon">🗺</div>
+        <div class="placeholder-text">Peta akan muncul setelah pencarian rute</div>
+      </div>
+      <div class="bottom-panel" id="bottomPanel" style="display:none; position:relative;">
+        <div class="bottom-header">
+          <div class="bottom-title">📈 Profil Elevasi</div>
+          <div class="bottom-stats" id="elevStats"></div>
+        </div>
+        <div style="position:relative; flex:1; min-height:0;">
+          <canvas id="elevChart" style="width:100%; height:100%;"></canvas>
+          <div id="elevIndicator" style="position:absolute; top:0; bottom:0; width:2px; background:#ff2c2c; transform:translateX(-50%); display:none; pointer-events:none; z-index:10;"></div>
+          <!-- Tooltip untuk indikator elevasi -->
+          <div id="elevTooltip" style="position:absolute; background:rgba(0,0,0,0.8); color:#fff; padding:4px 8px; border-radius:4px; font-size:11px; font-family:'DM Mono', monospace; pointer-events:none; display:none; z-index:30; white-space:nowrap;"></div>
+        </div>
+      </div>
+      <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <div class="loading-text" id="loadingText">Memproses...</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+/* ─── STATE ─── */
+let map = null;
+let allRoutes = [];
+let activeRouteIndex = 0;
+let elevChart = null;
+let polylines = [];
+let markers = [];
+const COLORS = ['#FF2C2C', '#00c9ff', '#ffb347'];
+const mapState = { type: 'terrain', theme: 'dark' };
+
+// Simulation variables
+let simulationActive = false;
+let simulationPaused = false;
+let animFrame = null;
+let vehicleMarker = null;
+let currentDistance = 0; // meter
+let totalDistance = 0;
+let simDuration = 15; // detik, dari slider
+let pathDistances = []; // jarak kumulatif path (meter)
+let pathCoords = [];
+const speedSlider = document.getElementById('speedSlider');
+const btnSimulate = document.getElementById('btnSimulate');
+const simulationControls = document.getElementById('simulationControls');
+const elevIndicator = document.getElementById('elevIndicator');
+const elevTooltip = document.getElementById('elevTooltip');
+
+speedSlider.addEventListener('input', (e) => {
+  simDuration = parseInt(e.target.value);
+});
+
+btnSimulate.addEventListener('click', toggleSimulation);
+
+/* ─── UI ─── */
+function setStatus(text, state) {
+  document.getElementById('statusText').textContent = text;
+  document.getElementById('statusDot').className = 'status-dot ' + (state || '');
+}
+function showLoading(text) {
+  document.getElementById('loadingText').textContent = text || 'Memproses...';
+  document.getElementById('loadingOverlay').classList.add('show');
+}
+function hideLoading() {
+  document.getElementById('loadingOverlay').classList.remove('show');
+}
+function showError(title, html) {
+  document.getElementById('errorTitle').textContent = '⚠ ' + title;
+  document.getElementById('errorMsg').innerHTML = html;
+  document.getElementById('errorPanel').classList.add('show');
+}
+function hideError() {
+  document.getElementById('errorPanel').classList.remove('show');
+}
+function setBtn(disabled) {
+  document.getElementById('searchBtn').disabled = disabled;
+}
+
+/* ─── DECODE POLYLINE ─── */
+function decodePolyline(enc) {
+  const pts = [];
+  let idx = 0, lat = 0, lng = 0;
+  while (idx < enc.length) {
+    let b, shift = 0, result = 0;
+    do { b = enc.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lat += (result & 1) ? ~(result >> 1) : result >> 1;
+    shift = 0; result = 0;
+    do { b = enc.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lng += (result & 1) ? ~(result >> 1) : result >> 1;
+    pts.push({ lat: lat / 1e5, lng: lng / 1e5 });
+  }
+  return pts;
+}
+
+/* ─── LOAD MAPS SDK ─── */
+let sdkLoaded = false;
+function loadMapsSDK(apiKey) {
+  return new Promise((resolve, reject) => {
+    if (sdkLoaded && typeof google !== 'undefined') { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry`;
+    s.onload = () => { sdkLoaded = true; resolve(); };
+    s.onerror = () => reject(new Error('SDK_LOAD_FAILED'));
+    document.head.appendChild(s);
+  });
+}
+
+/* ─── DIRECTIONS (JS SDK) ─── */
+function fetchDirections(origin, dest, mode, avoidHighways = false) {
+  return new Promise((resolve, reject) => {
+    const svc = new google.maps.DirectionsService();
+    svc.route({
+      origin, destination: dest,
+      travelMode: google.maps.TravelMode[mode],
+      provideRouteAlternatives: true,
+      avoidHighways: avoidHighways,
+    }, (result, status) => {
+      if (status === 'OK') resolve(result.routes);
+      else reject(new Error(status));
+    });
+  });
+}
+
+/* ─── ELEVATION (JS SDK) ─── */
+function fetchElevation(pts, samples) {
+  return new Promise((resolve, reject) => {
+    const svc = new google.maps.ElevationService();
+    svc.getElevationAlongPath({
+      path: pts,
+      samples: Math.min(samples, 512),
+    }, (results, status) => {
+      if (status === 'OK') resolve(results);
+      else reject(new Error('ELEV_' + status));
+    });
+  });
+}
+
+/* ─── MATH ─── */
+function calcGain(e) { let g=0; for(let i=1;i<e.length;i++) if(e[i]>e[i-1]) g+=e[i]-e[i-1]; return Math.round(g); }
+function calcLoss(e) { let l=0; for(let i=1;i<e.length;i++) if(e[i]<e[i-1]) l+=e[i-1]-e[i]; return Math.round(l); }
+function haversine(la1,ln1,la2,ln2) {
+  const R=6371000,f1=la1*Math.PI/180,f2=la2*Math.PI/180;
+  const df=(la2-la1)*Math.PI/180,dl=(ln2-ln1)*Math.PI/180;
+  const a=Math.sin(df/2)**2+Math.cos(f1)*Math.cos(f2)*Math.sin(dl/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function calcMaxGrade(er) {
+  let mx=0;
+  for(let i=1;i<er.length;i++){
+    const dE=Math.abs(er[i].elevation-er[i-1].elevation);
+    const dD=haversine(er[i-1].location.lat(),er[i-1].location.lng(),er[i].location.lat(),er[i].location.lng());
+    if(dD>0) mx=Math.max(mx,(dE/dD)*100);
+  }
+  return mx.toFixed(1);
+}
+function calcScore(dist,dur,gain) {
+  return Math.round(Math.max(0,100-dist/1000)*0.3 + Math.max(0,100-dur/60)*0.4 + Math.max(0,100-gain/10)*0.3);
+}
+
+/* ─── INIT MAP ─── */
+function initMap() {
+  if (map) return;
+  map = new google.maps.Map(document.getElementById('map'), {
+    center: { lat: -6.2, lng: 106.8 }, zoom: 10,
+    mapTypeId: mapState.type,
+    styles: getStyle(mapState.theme),
+    mapTypeControl: false,
+    fullscreenControl: true,
+    zoomControl: true,
+  });
+}
+
+/* ─── APPLY MAP STYLE ─── */
+function applyMapStyle() {
+  if (!map) return;
+  map.setMapTypeId(mapState.type);
+  map.setOptions({ styles: getStyle(mapState.theme) });
+}
+
+/* ─── GET STYLE BY THEME ─── */
+function getStyle(theme) {
+  switch(theme) {
+    case 'dark':   return darkStyle();
+    case 'night':  return nightStyle();
+    case 'silver': return silverStyle();
+    case 'light':
+    default:       return [];
+  }
+}
+
+/* ─── INIT MAP CONTROLS ─── */
+function initMapControls() {
+  document.getElementById('mapControls').classList.add('visible');
+
+  document.querySelectorAll('#typePills .ctrl-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      mapState.type = btn.dataset.type;
+      document.querySelectorAll('#typePills .ctrl-pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      applyMapStyle();
+    });
+  });
+
+  document.querySelectorAll('#themePills .ctrl-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      mapState.theme = btn.dataset.theme;
+      document.querySelectorAll('#themePills .ctrl-pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      applyMapStyle();
+    });
+  });
+}
+
+/* ─── MAIN ─── */
+async function findRoutes() {
+  const apiKey  = document.getElementById('apiKey').value.trim();
+  const origin  = document.getElementById('origin').value.trim();
+  const dest    = document.getElementById('destination').value.trim();
+  const mode    = document.getElementById('travelMode').value;
+  const samples = parseInt(document.getElementById('samples').value);
+
+  hideError();
+  // Sembunyikan kontrol simulasi saat pencarian baru
+  simulationControls.style.display = 'none';
+  btnSimulate.disabled = true;
+  if (simulationActive) stopSimulation();
+
+  if (!apiKey) {
+    showError('API Key Kosong',
+      'Masukkan Google Maps API Key. Buat di ' +
+      '<a href="https://console.cloud.google.com/apis/credentials" target="_blank">console.cloud.google.com</a>.'
+    );
+    return;
+  }
+  if (!origin || !dest) { alert('Isi titik asal dan tujuan!'); return; }
+
+  setBtn(true);
+
+  if (!sdkLoaded) {
+    showLoading('Memuat Google Maps SDK...');
+    setStatus('Memuat SDK...', 'active');
+    try {
+      await loadMapsSDK(apiKey);
+    } catch(e) {
+      hideLoading(); setBtn(false);
+      showError('Gagal Memuat SDK',
+        'Kemungkinan penyebab:<ol>' +
+        '<li>API Key tidak valid</li>' +
+        '<li><code>Maps JavaScript API</code> belum diaktifkan di Google Cloud Console</li>' +
+        '<li>Billing belum diaktifkan di project Google Cloud kamu</li>' +
+        '<li>Coba jalankan lewat server lokal (<code>python -m http.server 8080</code>) bukan langsung dari <code>file://</code></li></ol>'
+      );
+      setStatus('Gagal memuat SDK', 'error');
+      return;
+    }
+  }
+
+  showLoading('Mencari rute alternatif...');
+  setStatus('Memanggil Directions API...', 'active');
+
+  try {
+    const isMotorcycle = mode === 'MOTORCYCLE';
+    const isBicycle    = mode === 'BICYCLING';
+    const apiMode      = isMotorcycle ? 'DRIVING' : mode;
+
+    let rawRoutes;
+    let usedFallback = null;
+
+    try {
+      rawRoutes = await fetchDirections(origin, dest, apiMode, isMotorcycle);
+    } catch (firstErr) {
+      if (isBicycle && firstErr.message === 'ZERO_RESULTS') {
+        showLoading('Rute sepeda tidak tersedia di area ini, beralih ke pejalan kaki...');
+        rawRoutes    = await fetchDirections(origin, dest, 'WALKING', false);
+        usedFallback = 'bicycle';
+      } else {
+        throw firstErr;
+      }
+    }
+
+    document.getElementById('routeCount').textContent = rawRoutes.length;
+    setStatus(rawRoutes.length + ' rute ditemukan. Mengambil elevasi...', 'active');
+
+    allRoutes = [];
+    for (let i = 0; i < rawRoutes.length; i++) {
+      showLoading('Elevasi rute ' + (i+1) + '/' + rawRoutes.length + '...');
+      const r = rawRoutes[i];
+      const pts = decodePolyline(r.overview_polyline);
+      const elevResults = await fetchElevation(pts, samples);
+      const elevations = elevResults.map(e => e.elevation);
+      const dist = r.legs.reduce((a, l) => a + l.distance.value, 0);
+      const dur  = r.legs.reduce((a, l) => a + l.duration.value, 0);
+      const gain = calcGain(elevations);
+      const loss = calcLoss(elevations);
+      const maxG = calcMaxGrade(elevResults);
+      allRoutes.push({ raw: r, pts, elevations, elevResults, gain, loss, maxG, dist, dur, score: calcScore(dist, dur, gain) });
+    }
+    allRoutes.sort((a, b) => b.score - a.score);
+
+    document.getElementById('mapPlaceholder').style.display = 'none';
+    document.getElementById('map').style.display = 'block';
+    initMap();
+    initMapControls();
+
+    polylines.forEach(p => p.setMap(null)); polylines = [];
+    markers.forEach(m => m.setMap(null));   markers = [];
+
+    allRoutes.forEach((route, idx) => {
+      const pl = new google.maps.Polyline({
+        path: route.pts, geodesic: true,
+        strokeColor:   COLORS[idx] || '#888',
+        strokeOpacity: idx === 0 ? 1 : 0.35,
+        strokeWeight:  idx === 0 ? 5 : 2.5,
+        zIndex:        idx === 0 ? 10 : 1,
+        map,
+      });
+      polylines.push(pl);
+    });
+
+    const first = allRoutes[0].pts[0];
+    const last  = allRoutes[0].pts[allRoutes[0].pts.length - 1];
+    const mkIcon = (color) => ({ path: google.maps.SymbolPath.CIRCLE, scale: 9, fillColor: color, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 });
+    markers.push(new google.maps.Marker({ position: first, map, icon: mkIcon('#ff5e5e'), title: 'Origin' }));
+    markers.push(new google.maps.Marker({ position: last,  map, icon: mkIcon('#3dff9a'), title: 'Destination' }));
+
+    const bounds = new google.maps.LatLngBounds();
+    allRoutes[0].pts.forEach(p => bounds.extend(p));
+    map.fitBounds(bounds, { padding: 60 });
+
+    renderCards();
+    document.getElementById('bottomPanel').style.display = 'flex';
+    selectRoute(0);
+
+    setStatus('✓ ' + rawRoutes.length + ' rute + profil elevasi dimuat', 'active');
+    hideLoading();
+    setBtn(false);
+
+    // Aktifkan kontrol simulasi
+    simulationControls.style.display = 'flex';
+    btnSimulate.disabled = false;
+
+    if (usedFallback === 'bicycle') {
+      showError('ℹ️ Info: Mode Sepeda Diganti',
+        'Mode <strong>🚴 Sepeda</strong> belum didukung Google Maps di wilayah ini (termasuk Indonesia). ' +
+        'Rute ditampilkan menggunakan <strong>🚶 Jalan Kaki</strong> sebagai alternatif.<br><br>' +
+        'Mode yang didukung di Indonesia: 🚗 Mobil · 🏍 Motor · 🚶 Jalan Kaki'
+      );
+    }
+
+    if (isMobile()) {
+      const badge = document.getElementById('tabBadge');
+      badge.textContent = rawRoutes.length;
+      badge.style.display = 'inline';
+      switchTab('peta');
+    }
+
+  } catch(err) {
+    console.error('[ElevRoute]', err);
+    hideLoading();
+    setBtn(false);
+    const msg = err.message || '';
+
+    if (msg === 'REQUEST_DENIED') {
+      showError('REQUEST_DENIED — API Key Ditolak',
+        'Periksa di <a href="https://console.cloud.google.com/apis/dashboard" target="_blank">Cloud Console</a>:<ol>' +
+        '<li><code>Maps JavaScript API</code> sudah diaktifkan?</li>' +
+        '<li><code>Elevation API</code> sudah diaktifkan?</li>' +
+        '<li>Billing sudah diaktifkan di project?</li>' +
+        '<li>API Key restriction: coba set ke <strong>None</strong> saat testing</li>' +
+        '<li>Buka via server lokal, bukan <code>file://</code></li></ol>');
+      setStatus('REQUEST_DENIED', 'error');
+    } else if (msg === 'ZERO_RESULTS') {
+      setStatus('Tidak ada rute antara dua lokasi ini.', 'error');
+    } else if (msg === 'NOT_FOUND') {
+      setStatus('Lokasi tidak ditemukan. Coba nama lebih spesifik.', 'error');
+    } else if (msg === 'OVER_QUERY_LIMIT') {
+      setStatus('Kuota API habis. Coba beberapa saat lagi.', 'error');
+    } else {
+      showError('Error Tidak Terduga: ' + msg,
+        'Buka browser DevTools (F12 / Cmd+Option+I → Console) untuk melihat detail error.');
+      setStatus('Error — lihat panel di atas', 'error');
+    }
+  }
+}
+
+/* ─── RENDER CARDS (dengan tombol export) ─── */
+function renderCards() {
+  const c = document.getElementById('routeCards');
+  c.innerHTML = '';
+  allRoutes.forEach((route, i) => {
+    const dist = (route.dist/1000).toFixed(1);
+    const dur  = Math.round(route.dur/60);
+    const sc   = i===0 ? 'score-best' : (i===1 ? 'score-mid' : 'score-low');
+    const lbl  = i===0 ? '★ Terbaik' : '● Alt ' + (i+1);
+    const card = document.createElement('div');
+    card.className = 'route-card' + (i===0 ? ' active' : '');
+    card.innerHTML = `
+      <div class="card-header">
+        <span class="card-title" style="color:${COLORS[i]||'#888'}">Rute ${i+1}</span>
+        <span class="score-badge ${sc}">${lbl} · ${route.score}pt</span>
+      </div>
+      <div class="card-stats">
+        <div class="stat-item"><span class="stat-val">${dist}km</span><span class="stat-label">Jarak</span></div>
+        <div class="stat-item"><span class="stat-val">${dur}mnt</span><span class="stat-label">Waktu</span></div>
+        <div class="stat-item"><span class="stat-val stat-up">↑${route.gain}m</span><span class="stat-label">Gain</span></div>
+        <div class="stat-item"><span class="stat-val stat-down">↓${route.loss}m</span><span class="stat-label">Loss</span></div>
+      </div>
+    `;
+    // Tombol export
+    const exportBtn = document.createElement('button');
+    exportBtn.className = 'export-btn';
+    exportBtn.innerHTML = '📥 Export CSV';
+    exportBtn.onclick = (e) => {
+      e.stopPropagation();
+      exportRouteData(i);
+    };
+    card.appendChild(exportBtn);
+
+    card.addEventListener('click', () => selectRoute(i));
+    c.appendChild(card);
+  });
+}
+
+/* ─── SELECT ROUTE ─── */
+function selectRoute(idx) {
+  if (simulationActive) stopSimulation();
+  activeRouteIndex = idx;
+  document.querySelectorAll('.route-card').forEach((c,i) => c.classList.toggle('active', i===idx));
+  polylines.forEach((p,i) => p.setOptions({
+    strokeOpacity: i===idx ? 1 : 0.25,
+    strokeWeight:  i===idx ? 5 : 2,
+    zIndex:        i===idx ? 10 : 1,
+  }));
+  const r = allRoutes[idx];
+  preparePathDistances(r);
+  renderElevChart(r, idx);
+  document.getElementById('elevStats').innerHTML =
+    `<div class="b-stat"><span class="val" style="color:#FF2C2C">↑${r.gain}m</span> <span class="lbl">gain</span></div>` +
+    `<div class="b-stat"><span class="val" style="color:#00c9ff">↓${r.loss}m</span> <span class="lbl">loss</span></div>` +
+    `<div class="b-stat"><span class="val" style="color:#ffb347">${r.maxG}%</span> <span class="lbl">max grade</span></div>` +
+    `<div class="b-stat"><span class="val">${Math.round(Math.min(...r.elevations))}m</span> <span class="lbl">min elev</span></div>` +
+    `<div class="b-stat"><span class="val">${Math.round(Math.max(...r.elevations))}m</span> <span class="lbl">max elev</span></div>`;
+}
+
+/* ─── ELEV CHART (modified to use x-y data) ─── */
+function renderElevChart(route, colorIdx) {
+  const elevs = route.elevations;
+  const n = elevs.length;
+  const totalDist = route.dist; // meter
+  const step = totalDist / (n - 1);
+  const dataPoints = [];
+  for (let i = 0; i < n; i++) {
+    const x = (i * step) / 1000; // km
+    dataPoints.push({ x, y: elevs[i] });
+  }
+  const color = COLORS[colorIdx] || '#FF2C2C';
+  const rgb = hexRgb(color);
+  if (elevChart) elevChart.destroy();
+  const ctx = document.getElementById('elevChart').getContext('2d');
+  const grad = ctx.createLinearGradient(0,0,0,140);
+  grad.addColorStop(0, `rgba(${rgb},.35)`);
+  grad.addColorStop(1, `rgba(${rgb},0)`);
+  elevChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      datasets: [{
+        label: 'Elevasi (m)',
+        data: dataPoints,
+        borderColor: color,
+        backgroundColor: grad,
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        tension: 0.3,
+        fill: true
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a2220',
+          borderColor: '#2a3a36',
+          borderWidth: 1,
+          titleColor: '#6b8a82',
+          bodyColor: '#e8f0ee',
+          callbacks: {
+            label: (c) => '  ' + Math.round(c.raw.y) + ' mdpl'
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'linear',
+          position: 'bottom',
+          title: { display: true, text: 'Jarak (km)', color: '#6b8a82', font: { family: 'DM Mono', size: 10 } },
+          grid: { color: 'rgba(42,58,54,.6)' },
+          ticks: { color: '#6b8a82', font: { family: 'DM Mono', size: 10 }, maxTicksLimit: 8, maxRotation: 0 }
+        },
+        y: {
+          title: { display: true, text: 'Elevasi (m)', color: '#6b8a82', font: { family: 'DM Mono', size: 10 } },
+          grid: { color: 'rgba(42,58,54,.6)' },
+          ticks: { color: '#6b8a82', font: { family: 'DM Mono', size: 10 }, callback: v => v + ' m' }
+        }
+      }
+    }
+  });
+}
+
+function hexRgb(h) { return `${parseInt(h.slice(1,3),16)},${parseInt(h.slice(3,5),16)},${parseInt(h.slice(5,7),16)}`; }
+
+/* ─── SIMULATION HELPERS ─── */
+function preparePathDistances(route) {
+  const pts = route.pts;
+  pathDistances = [0];
+  for (let i = 1; i < pts.length; i++) {
+    const d = haversine(pts[i-1].lat, pts[i-1].lng, pts[i].lat, pts[i].lng);
+    pathDistances.push(pathDistances[i-1] + d);
+  }
+  totalDistance = route.dist;
+  pathCoords = pts;
+}
+
+function getElevationAtDistance(distance) {
+  const route = allRoutes[activeRouteIndex];
+  if (!route) return 0;
+  const elevs = route.elevations;
+  const total = route.dist;
+  if (distance <= 0) return elevs[0];
+  if (distance >= total) return elevs[elevs.length-1];
+  const step = total / (elevs.length - 1);
+  const index = distance / step;
+  const i1 = Math.floor(index);
+  const i2 = Math.min(i1 + 1, elevs.length - 1);
+  const frac = index - i1;
+  return elevs[i1] + (elevs[i2] - elevs[i1]) * frac;
+}
+
+function getVehicleIcon(mode) {
+  let emoji = '';
+  let color = '';
+  switch (mode) {
+    case 'DRIVING':
+      emoji = '🚗';
+      color = '#4285F4';
+      break;
+    case 'MOTORCYCLE':
+      emoji = '🏍';
+      color = '#FFA500';
+      break;
+    case 'WALKING':
+      emoji = '🚶';
+      color = '#34A853';
+      break;
+    default:
+      emoji = '🚗';
+      color = '#4285F4';
+  }
+  const svg = `<svg width="30" height="30" viewBox="0 0 30 30" xmlns="http://www.w3.org/2000/svg"><circle cx="15" cy="15" r="12" fill="${color}" stroke="white" stroke-width="2"/><text x="15" y="22" font-size="16" text-anchor="middle" fill="white" font-family="Arial, sans-serif">${emoji}</text></svg>`;
+  return {
+    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+    scaledSize: new google.maps.Size(30, 30)
+  };
+}
+
+function toggleSimulation() {
+  if (!simulationActive) {
+    startSimulation();
+  } else {
+    if (simulationPaused) {
+      resumeSimulation();
+    } else {
+      pauseSimulation();
+    }
+  }
+}
+
+function startSimulation() {
+  if (!allRoutes.length) return;
+  const route = allRoutes[activeRouteIndex];
+  totalDistance = route.dist;
+  pathCoords = route.pts;
+  if (pathDistances.length === 0) {
+    preparePathDistances(route);
+  }
+  currentDistance = 0;
+  if (vehicleMarker) vehicleMarker.setMap(null);
+  const mode = document.getElementById('travelMode').value;
+  vehicleMarker = new google.maps.Marker({
+    position: pathCoords[0],
+    map: map,
+    icon: getVehicleIcon(mode),
+    title: 'Kendaraan'
+  });
+  simulationActive = true;
+  simulationPaused = false;
+  btnSimulate.innerHTML = '⏸️ Pause';
+  elevIndicator.style.display = 'block';
+  elevTooltip.style.display = 'block';
+  simStartTime = performance.now();
+  animFrame = requestAnimationFrame(updateSimulation);
+}
+
+function pauseSimulation() {
+  if (animFrame) {
+    cancelAnimationFrame(animFrame);
+    animFrame = null;
+  }
+  simulationPaused = true;
+  btnSimulate.innerHTML = '▶️ Lanjutkan';
+}
+
+function resumeSimulation() {
+  if (!simulationActive) return;
+  simulationPaused = false;
+  btnSimulate.innerHTML = '⏸️ Pause';
+  simStartTime = performance.now() - (currentDistance / totalDistance) * simDuration * 1000;
+  animFrame = requestAnimationFrame(updateSimulation);
+}
+
+function stopSimulation() {
+  if (animFrame) {
+    cancelAnimationFrame(animFrame);
+    animFrame = null;
+  }
+  if (vehicleMarker) {
+    vehicleMarker.setMap(null);
+    vehicleMarker = null;
+  }
+  simulationActive = false;
+  simulationPaused = false;
+  btnSimulate.innerHTML = '▶️ Jalankan';
+  elevIndicator.style.display = 'none';
+  elevTooltip.style.display = 'none';
+}
+
+function updateSimulation(timestamp) {
+  if (!simulationActive || simulationPaused) return;
+  const elapsed = (timestamp - simStartTime) / 1000;
+  let progress = elapsed / simDuration;
+  if (progress >= 1) {
+    progress = 1;
+    currentDistance = totalDistance;
+    updateVehiclePosition(currentDistance);
+    stopSimulation();
+    return;
+  }
+  currentDistance = progress * totalDistance;
+  updateVehiclePosition(currentDistance);
+  animFrame = requestAnimationFrame(updateSimulation);
+}
+
+function updateVehiclePosition(distance) {
+  let i = 0;
+  while (i < pathDistances.length - 1 && pathDistances[i+1] < distance) i++;
+  if (i >= pathDistances.length - 1) {
+    vehicleMarker.setPosition(pathCoords[pathCoords.length-1]);
+    updateElevIndicator(totalDistance);
+    return;
+  }
+  const d1 = pathDistances[i];
+  const d2 = pathDistances[i+1];
+  const frac = (distance - d1) / (d2 - d1);
+  const p1 = pathCoords[i];
+  const p2 = pathCoords[i+1];
+  const lat = p1.lat + (p2.lat - p1.lat) * frac;
+  const lng = p1.lng + (p2.lng - p1.lng) * frac;
+  vehicleMarker.setPosition({ lat, lng });
+  updateElevIndicator(distance);
+}
+
+function updateElevIndicator(distanceMeters) {
+  if (!elevChart) return;
+  const distanceKm = distanceMeters / 1000;
+  const xScale = elevChart.scales.x;
+  if (!xScale) return;
+  const pixel = xScale.getPixelForValue(distanceKm);
+  const canvas = document.getElementById('elevChart');
+  const container = document.querySelector('#bottomPanel > div'); // container relatif
+  const canvasRect = canvas.getBoundingClientRect();
+  const containerRect = container.getBoundingClientRect();
+  const left = pixel + (canvasRect.left - containerRect.left);
+  elevIndicator.style.left = left + 'px';
+
+  const elev = getElevationAtDistance(distanceMeters);
+  if (simulationActive) {
+    elevTooltip.style.display = 'block';
+    elevTooltip.innerHTML = `${distanceKm.toFixed(2)} km, ${Math.round(elev)} mdpl`;
+    let tooltipLeft = left + 10;
+    const tooltipWidth = elevTooltip.offsetWidth;
+    const containerWidth = containerRect.width;
+    if (tooltipLeft + tooltipWidth > containerWidth - 10) {
+      tooltipLeft = left - tooltipWidth - 10;
+    }
+    if (tooltipLeft < 10) tooltipLeft = 10;
+    elevTooltip.style.left = tooltipLeft + 'px';
+    elevTooltip.style.top = '10px';
+  } else {
+    elevTooltip.style.display = 'none';
+  }
+}
+
+/* ─── EXPORT DATA ─── */
+function exportRouteData(routeIndex) {
+  const route = allRoutes[routeIndex];
+  if (!route) return;
+  const elevResults = route.elevResults;
+  if (!elevResults || elevResults.length === 0) return;
+
+  // Hitung jarak kumulatif antar titik elevResults
+  const distances = [0]; // meter
+  for (let i = 1; i < elevResults.length; i++) {
+    const p1 = elevResults[i-1].location;
+    const p2 = elevResults[i].location;
+    const d = haversine(p1.lat(), p1.lng(), p2.lat(), p2.lng());
+    distances.push(distances[i-1] + d);
+  }
+
+  // Buat array CSV
+  const rows = [];
+  rows.push('lat,lng,km,elev');
+  for (let i = 0; i < elevResults.length; i++) {
+    const loc = elevResults[i].location;
+    const lat = loc.lat();
+    const lng = loc.lng();
+    const km = (distances[i] / 1000).toFixed(3);
+    const elev = Math.round(elevResults[i].elevation);
+    rows.push(`${lat},${lng},${km},${elev}`);
+  }
+  const csvString = rows.join('\n');
+
+  // Buat file download
+  const blob = new Blob([csvString], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `rute_${routeIndex+1}_data.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ─── MAP STYLES ─── */
+function darkStyle() {
+  return [
+    {elementType:'geometry',stylers:[{color:'#1a2220'}]},
+    {elementType:'labels.text.fill',stylers:[{color:'#6b8a82'}]},
+    {elementType:'labels.text.stroke',stylers:[{color:'#0b0f0e'}]},
+    {featureType:'administrative',elementType:'geometry',stylers:[{color:'#2a3a36'}]},
+    {featureType:'road',elementType:'geometry',stylers:[{color:'#2a3a36'}]},
+    {featureType:'road',elementType:'geometry.stroke',stylers:[{color:'#0b0f0e'}]},
+    {featureType:'road.highway',elementType:'geometry',stylers:[{color:'#3a4e48'}]},
+    {featureType:'road.highway',elementType:'labels.text.fill',stylers:[{color:'#FF2C2C'}]},
+    {featureType:'water',elementType:'geometry',stylers:[{color:'#0d1e1a'}]},
+    {featureType:'water',elementType:'labels.text.fill',stylers:[{color:'#3d5a52'}]},
+    {featureType:'landscape',elementType:'geometry',stylers:[{color:'#131918'}]},
+    {featureType:'poi',elementType:'geometry',stylers:[{color:'#1a2e28'}]},
+    {featureType:'poi.park',elementType:'geometry',stylers:[{color:'#0f2018'}]},
+    {featureType:'transit',elementType:'geometry',stylers:[{color:'#1e2e2a'}]},
+  ];
+}
+function nightStyle() {
+  return [
+    {elementType:'geometry',stylers:[{color:'#0d1321'}]},
+    {elementType:'labels.text.fill',stylers:[{color:'#5a6a9a'}]},
+    {elementType:'labels.text.stroke',stylers:[{color:'#060c18'}]},
+    {featureType:'road',elementType:'geometry',stylers:[{color:'#1a2040'}]},
+    {featureType:'road.highway',elementType:'geometry',stylers:[{color:'#283060'}]},
+    {featureType:'road.highway',elementType:'labels.text.fill',stylers:[{color:'#00c9ff'}]},
+    {featureType:'water',elementType:'geometry',stylers:[{color:'#071020'}]},
+    {featureType:'water',elementType:'labels.text.fill',stylers:[{color:'#1a3a5c'}]},
+    {featureType:'landscape',elementType:'geometry',stylers:[{color:'#0a1020'}]},
+    {featureType:'poi',elementType:'geometry',stylers:[{color:'#0f1a30'}]},
+    {featureType:'poi.park',elementType:'geometry',stylers:[{color:'#081828'}]},
+    {featureType:'transit',elementType:'geometry',stylers:[{color:'#0d1828'}]},
+    {featureType:'administrative.land_parcel',elementType:'labels',stylers:[{visibility:'off'}]},
+  ];
+}
+function silverStyle() {
+  return [
+    {elementType:'geometry',stylers:[{color:'#f0f0f0'}]},
+    {elementType:'labels.icon',stylers:[{visibility:'off'}]},
+    {elementType:'labels.text.fill',stylers:[{color:'#616161'}]},
+    {elementType:'labels.text.stroke',stylers:[{color:'#f5f5f5'}]},
+    {featureType:'road',elementType:'geometry',stylers:[{color:'#ffffff'}]},
+    {featureType:'road',elementType:'geometry.stroke',stylers:[{color:'#e0e0e0'}]},
+    {featureType:'road.highway',elementType:'geometry',stylers:[{color:'#dadada'}]},
+    {featureType:'road.highway',elementType:'geometry.stroke',stylers:[{color:'#b0b0b0'}]},
+    {featureType:'road.highway',elementType:'labels.text.fill',stylers:[{color:'#333333'}]},
+    {featureType:'water',elementType:'geometry',stylers:[{color:'#c9e8f0'}]},
+    {featureType:'water',elementType:'labels.text.fill',stylers:[{color:'#5a8a9f'}]},
+    {featureType:'landscape',elementType:'geometry',stylers:[{color:'#e8e8e8'}]},
+    {featureType:'poi',elementType:'geometry',stylers:[{color:'#eeeeee'}]},
+    {featureType:'poi.park',elementType:'geometry',stylers:[{color:'#d8eddb'}]},
+    {featureType:'transit.line',elementType:'geometry',stylers:[{color:'#e0e0e0'}]},
+  ];
+}
+
+/* ─── APP THEME (DARK / LIGHT) ─── */
+let appMode = localStorage.getItem('elevroute-theme') || 'dark';
+
+function applyAppMode(mode) {
+  appMode = mode;
+  const isLight = mode === 'light';
+  document.body.classList.toggle('light-mode', isLight);
+
+  document.getElementById('themeIcon').textContent  = isLight ? '☀️' : '🌙';
+  document.getElementById('themeLabel').textContent = isLight ? 'Light' : 'Dark';
+  document.getElementById('toggleTrack').classList.toggle('on', isLight);
+
+  if (map) {
+    const needsLightMap = isLight && ['dark','night'].includes(mapState.theme);
+    const needsDarkMap  = !isLight && mapState.theme === 'light';
+    if (needsLightMap) {
+      mapState.theme = 'light';
+      document.querySelectorAll('#themePills .ctrl-pill').forEach(b => {
+        b.classList.toggle('active', b.dataset.theme === 'light');
+      });
+    } else if (needsDarkMap) {
+      mapState.theme = 'dark';
+      document.querySelectorAll('#themePills .ctrl-pill').forEach(b => {
+        b.classList.toggle('active', b.dataset.theme === 'dark');
+      });
+    }
+    applyMapStyle();
+  }
+
+  localStorage.setItem('elevroute-theme', mode);
+}
+
+function toggleAppMode() {
+  applyAppMode(appMode === 'dark' ? 'light' : 'dark');
+}
+
+applyAppMode(appMode);
+['origin','destination'].forEach(id =>
+  document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') findRoutes(); })
+);
+
+/* ─── MOBILE TABS ─── */
+const isMobile = () => window.innerWidth <= 480;
+
+function initMobileTabs() {
+  if (!isMobile()) return;
+  document.getElementById('mobileTabs').style.display = 'flex';
+  document.querySelector('.sidebar').classList.add('tab-active');
+}
+
+function switchTab(tab) {
+  if (!isMobile()) return;
+  const sidebar  = document.querySelector('.sidebar');
+  const mapArea  = document.querySelector('.map-area');
+  const btnRute  = document.getElementById('tabRute');
+  const btnPeta  = document.getElementById('tabPeta');
+
+  if (tab === 'rute') {
+    sidebar.classList.add('tab-active');
+    mapArea.classList.remove('tab-active');
+    btnRute.classList.add('active');
+    btnPeta.classList.remove('active');
+  } else {
+    mapArea.classList.add('tab-active');
+    sidebar.classList.remove('tab-active');
+    btnPeta.classList.add('active');
+    btnRute.classList.remove('active');
+    if (map) google.maps.event.trigger(map, 'resize');
+  }
+}
+
+window.addEventListener('DOMContentLoaded', initMobileTabs);
+window.addEventListener('resize', () => {
+  if (isMobile()) {
+    document.getElementById('mobileTabs').style.display = 'flex';
+    const sidebar = document.querySelector('.sidebar');
+    const mapArea = document.querySelector('.map-area');
+    if (!sidebar.classList.contains('tab-active') && !mapArea.classList.contains('tab-active')) {
+      sidebar.classList.add('tab-active');
+    }
+  } else {
+    document.getElementById('mobileTabs').style.display = 'none';
+    document.querySelector('.sidebar').classList.remove('tab-active');
+    document.querySelector('.map-area').classList.remove('tab-active');
+    document.querySelector('.sidebar').style.display = '';
+    document.querySelector('.map-area').style.display = '';
+    if (map) google.maps.event.trigger(map, 'resize');
+  }
+});
+</script>
+</body>
+</html>
