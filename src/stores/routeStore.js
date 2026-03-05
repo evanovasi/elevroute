@@ -59,4 +59,5 @@ export const useRouteStore = create((set) => ({
 
   setActiveTab: (tab) => set({ activeTab: tab }),
   toggleSidebar: () => set((s) => ({ isSidebarOpen: !s.isSidebarOpen })),
+  setSidebarOpen: (v) => set({ isSidebarOpen: v }),
 }));

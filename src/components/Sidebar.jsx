@@ -19,8 +19,14 @@ export default function Sidebar({ onFindRoutes }) {
   const activeRouteIndex = useRouteStore((s) => s.activeRouteIndex);
   const selectRoute = useRouteStore((s) => s.selectRoute);
   const isSidebarOpen = useRouteStore((s) => s.isSidebarOpen);
+  const setSidebarOpen = useRouteStore((s) => s.setSidebarOpen);
 
-  const handleKeyDown = (e) => { if (e.key === 'Enter') onFindRoutes(); };
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      onFindRoutes();
+      setSidebarOpen(false);
+    }
+  };
 
   return (
     <>
@@ -80,7 +86,7 @@ export default function Sidebar({ onFindRoutes }) {
       </div>
 
       {/* Search Button */}
-      <button className="btn-primary" disabled={searchDisabled} onClick={onFindRoutes}>
+      <button className="btn-primary" disabled={searchDisabled} onClick={() => { onFindRoutes(); setSidebarOpen(false); }}>
         ⛰ Cari Rute + Profil Elevasi
       </button>
 
@@ -102,7 +108,7 @@ export default function Sidebar({ onFindRoutes }) {
               const sc = i === 0 ? 'score-best' : (i === 1 ? 'score-mid' : 'score-low');
               const lbl = i === 0 ? '★ Terbaik' : '● Alt ' + (i + 1);
               return (
-                <div key={i} className={`route-card${i === activeRouteIndex ? ' active' : ''}`} onClick={() => selectRoute(i)}>
+                <div key={i} className={`route-card${i === activeRouteIndex ? ' active' : ''}`} onClick={() => { selectRoute(i); setSidebarOpen(false); }}>
                   <div className="card-header">
                     <span className="card-title" style={{ color: COLORS[i] || '#888' }}>Rute {i + 1}</span>
                     <span className={`score-badge ${sc}`}>{lbl} · {route.score}pt</span>
