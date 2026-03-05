@@ -192,9 +192,22 @@ export default function MapView() {
     else resumeSimulation();
   }
 
+  const simDurationRef = useRef(simDuration);
+  useEffect(() => { simDurationRef.current = simDuration; }, [simDuration]);
+
+  // Handle real-time duration change
+  useEffect(() => {
+    if (simState === 'playing' && totalDistanceRef.current > 0) {
+      const progress = currentDistanceRef.current / totalDistanceRef.current;
+      simStartTimeRef.current = performance.now() - (progress * simDuration * 1000);
+    }
+  }, [simDuration, simState]);
+
   const updateSimulation = useCallback((timestamp) => {
     const elapsed = (timestamp - simStartTimeRef.current) / 1000;
-    let progress = elapsed / simDuration;
+    const duration = simDurationRef.current;
+    let progress = elapsed / duration;
+
     if (progress >= 1) {
       progress = 1;
       currentDistanceRef.current = totalDistanceRef.current;
@@ -205,7 +218,7 @@ export default function MapView() {
     currentDistanceRef.current = progress * totalDistanceRef.current;
     updateVehiclePosition(currentDistanceRef.current);
     animFrameRef.current = requestAnimationFrame(updateSimulation);
-  }, [simDuration]);
+  }, []);
 
   function updateVehiclePosition(distance) {
     const pathDistances = pathDistancesRef.current;
