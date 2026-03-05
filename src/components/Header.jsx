@@ -15,14 +15,12 @@ export default function Header() {
         <div className="logo-text">Elev<span>Route</span></div>
       </div>
       <div className="header-right">
-        <button className="theme-toggle" onClick={toggleAppTheme} title="Ganti tampilan Dark/Light">
-          <span className="toggle-icon">{isLight ? '☀️' : '🌙'}</span>
-          <div className={`toggle-track${isLight ? ' on' : ''}`}>
-            <div className="toggle-thumb"></div>
+        <button className={`theme-toggle ${isLight ? 'is-light' : 'is-dark'}`} onClick={toggleAppTheme} title="Ganti tampilan Dark/Light" aria-label="Toggle Theme">
+          <div className="theme-toggle-inner">
+            <span className="theme-icon sun">☀️</span>
+            <span className="theme-icon moon">🌙</span>
           </div>
-          <span className="toggle-label">{isLight ? 'Light' : 'Dark'}</span>
         </button>
-        <span className="api-badge">Google Maps Platform</span>
       </div>
     </header>
   );

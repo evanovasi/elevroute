@@ -12,12 +12,12 @@ export const useRouteStore = create((set) => ({
   // State
   allRoutes: [],
   activeRouteIndex: 0,
-  mapState: { type: 'terrain', theme: 'dark' },
-  status: { text: 'Masukkan API Key dan titik rute untuk memulai', state: '' },
+  mapState: { type: 'terrain', theme: 'light' }, // UI State
+  status: { text: 'Masukkan titik awal dan tujuan untuk memulai', state: '' },
   error: null,
   loading: null,
   searchDisabled: false,
-  appTheme: 'dark',
+  appTheme: 'light',
 
   // Map objects (refs, not reactive — stored in refs in components)
   sdkLoaded: false,

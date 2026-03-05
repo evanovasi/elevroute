@@ -5,24 +5,40 @@ import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import MapView from '@/components/MapView';
 import ElevationPanel from '@/components/ElevationPanel';
-import MobileTabs from '@/components/MobileTabs';
 import { useRouteStore } from '@/stores/routeStore';
 import { decodePolyline } from '@/utils/polyline';
 import { calcGain, calcLoss, calcMaxGrade, calcScore } from '@/utils/math';
 
 export default function Home() {
   const appTheme = useRouteStore((s) => s.appTheme);
-  const activeTab = useRouteStore((s) => s.activeTab);
 
   // Sync theme to body class
   useEffect(() => {
     document.body.classList.toggle('light-mode', appTheme === 'light');
   }, [appTheme]);
 
+  // Load Map SDK on mount
+  useEffect(() => {
+    const { sdkLoaded, setSdkLoaded, setLoading, hideLoading, setStatus, setError } = useRouteStore.getState();
+    if (!sdkLoaded) {
+      loadMapsSDK()
+        .then(() => {
+          setSdkLoaded(true);
+        })
+        .catch(() => {
+          setError({
+            title: 'Gagal Memuat SDK',
+            html: 'Kemungkinan penyebab:<ol><li>API Key tidak valid</li><li><code>Maps JavaScript API</code> belum diaktifkan</li><li>Billing belum diaktifkan</li><li>Coba lewat server lokal</li></ol>',
+          });
+          setStatus('Gagal memuat SDK', 'error');
+        });
+    }
+  }, []);
+
   const findRoutes = useCallback(async () => {
     const { origin, destination, travelMode, samples,
       clearError, setError, setSearchDisabled, setLoading, hideLoading,
-      setStatus, setRoutes, setSdkLoaded, sdkLoaded, setActiveTab, setMapState, appTheme } = useRouteStore.getState();
+      setStatus, setRoutes, setSdkLoaded, sdkLoaded, setMapState, appTheme } = useRouteStore.getState();
 
     clearError();
 
@@ -30,22 +46,10 @@ export default function Home() {
 
     setSearchDisabled(true);
 
-    // Load SDK
     if (!sdkLoaded) {
-      setLoading('Memuat Google Maps SDK...');
-      setStatus('Memuat SDK...', 'active');
-      try {
-        await loadMapsSDK();
-        setSdkLoaded();
-      } catch (e) {
-        hideLoading(); setSearchDisabled(false);
-        setError({
-          title: 'Gagal Memuat SDK',
-          html: 'Kemungkinan penyebab:<ol><li>API Key tidak valid</li><li><code>Maps JavaScript API</code> belum diaktifkan</li><li>Billing belum diaktifkan</li><li>Coba lewat server lokal</li></ol>',
-        });
-        setStatus('Gagal memuat SDK', 'error');
-        return;
-      }
+      alert('Peta belum sepenuhnya dimuat atau API Key tidak valid.');
+      setSearchDisabled(false);
+      return;
     }
 
     setLoading('Mencari rute alternatif...');
@@ -94,8 +98,7 @@ export default function Home() {
       hideLoading();
       setSearchDisabled(false);
 
-      // On mobile switch to map tab
-      if (window.innerWidth <= 480) setActiveTab('peta');
+      // No mobile tab switching anymore
 
     } catch (err) {
       console.error('[ElevRoute]', err);
@@ -126,9 +129,8 @@ export default function Home() {
     <>
       <Header />
       <main>
-        <MobileTabs />
         <Sidebar onFindRoutes={findRoutes} />
-        <div className={`map-area-wrapper${activeTab === 'peta' ? ' tab-active' : ''}`}>
+        <div className="map-area-wrapper">
           <MapView />
           <ElevationPanel />
         </div>

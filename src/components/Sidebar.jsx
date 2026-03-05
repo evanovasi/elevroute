@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouteStore, COLORS } from '@/stores/routeStore';
 import { haversine } from '@/utils/math';
 
@@ -18,12 +19,23 @@ export default function Sidebar({ onFindRoutes }) {
   const allRoutes = useRouteStore((s) => s.allRoutes);
   const activeRouteIndex = useRouteStore((s) => s.activeRouteIndex);
   const selectRoute = useRouteStore((s) => s.selectRoute);
-  const activeTab = useRouteStore((s) => s.activeTab);
+
+  // Toggle state
+  const [isOpen, setIsOpen] = useState(true);
 
   const handleKeyDown = (e) => { if (e.key === 'Enter') onFindRoutes(); };
 
   return (
-    <div className={`sidebar${activeTab === 'rute' ? ' tab-active' : ''}`}>
+    <>
+      <button
+        className={`sidebar-toggle-btn ${isOpen ? 'is-open' : ''}`}
+        onClick={() => setIsOpen(!isOpen)}
+        title={isOpen ? "Tutup Sidebar" : "Buka Sidebar"}
+      >
+        {isOpen ? '◀' : '▶'}
+      </button>
+
+      <div className={`sidebar ${isOpen ? 'is-open' : ''}`}>
 
 
       {/* Error Panel */}
@@ -125,6 +137,7 @@ export default function Sidebar({ onFindRoutes }) {
         </div>
       </div>
     </div>
+    </>
   );
 }
 

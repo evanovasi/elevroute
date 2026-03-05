@@ -12,8 +12,8 @@ export default function MapView() {
   const setMapState = useRouteStore((s) => s.setMapState);
   const loading = useRouteStore((s) => s.loading);
   const travelMode = useRouteStore((s) => s.travelMode);
-  const activeTab = useRouteStore((s) => s.activeTab);
   const simulationVisible = useRouteStore((s) => s.simulationVisible);
+  const sdkLoaded = useRouteStore((s) => s.sdkLoaded);
 
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -33,14 +33,14 @@ export default function MapView() {
   // Chart indicator ref (will be set from parent)
   const onSimUpdate = useRef(null);
 
-  // Init map when routes come in
+  // Init map as soon as SDK is loaded
   useEffect(() => {
-    if (allRoutes.length === 0 || !mapRef.current) return;
+    if (!sdkLoaded || !mapRef.current) return;
     if (typeof google === 'undefined') return;
 
     if (!mapInstanceRef.current) {
       mapInstanceRef.current = new google.maps.Map(mapRef.current, {
-        center: { lat: -6.2, lng: 106.8 }, zoom: 10,
+        center: { lat: -2.5, lng: 118.0 }, zoom: 5, // Default view (Indonesia)
         mapTypeId: mapState.type,
         styles: getStyle(mapState.theme),
         mapTypeControl: false,
@@ -48,7 +48,11 @@ export default function MapView() {
         zoomControl: true,
       });
     }
+  }, [sdkLoaded]);
 
+  // Handle routes drawing when allRoutes changes
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
     const map = mapInstanceRef.current;
 
     // Clear old
@@ -56,6 +60,8 @@ export default function MapView() {
     polylinesRef.current = [];
     markersRef.current.forEach((m) => m.setMap(null));
     markersRef.current = [];
+
+    if (allRoutes.length === 0) return;
 
     // Draw polylines
     allRoutes.forEach((route, idx) => {
@@ -109,12 +115,16 @@ export default function MapView() {
     mapInstanceRef.current.setOptions({ styles: getStyle(mapState.theme) });
   }, [mapState.type, mapState.theme]);
 
-  // Resize on tab change (mobile)
+  // Listen to window resizes to ensure map fills space
   useEffect(() => {
-    if (activeTab === 'peta' && mapInstanceRef.current) {
-      setTimeout(() => google.maps.event.trigger(mapInstanceRef.current, 'resize'), 100);
-    }
-  }, [activeTab]);
+    const handleResize = () => {
+      if (mapInstanceRef.current) {
+        google.maps.event.trigger(mapInstanceRef.current, 'resize');
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Prepare path distances
   function preparePathDistances(route) {
@@ -229,38 +239,47 @@ export default function MapView() {
   const simBtnText = simState === 'idle' ? '▶ Jalankan' : simState === 'playing' ? '⏸️ Pause' : '▶️ Lanjutkan';
 
   return (
-    <div className={`map-area${activeTab === 'peta' ? ' tab-active' : ''}`}>
-      <div id="map" ref={mapRef} style={{ flex: 1, minHeight: 0, display: hasRoutes ? 'block' : 'none' }}></div>
+    <div className="map-area">
+      <div id="map" ref={mapRef} style={{ flex: 1, minHeight: 0, display: 'block' }}></div>
 
       {/* Map controls */}
-      <div className={`map-controls${hasRoutes ? ' visible' : ''}`}>
-        <div className="ctrl-card">
-          <span className="ctrl-label">Type</span>
-          <div className="ctrl-pills">
-            {['roadmap', 'terrain', 'satellite', 'hybrid'].map((t) => (
-              <button key={t} className={`ctrl-pill${mapState.type === t ? ' active' : ''}`}
-                onClick={() => setMapState({ type: t })}>
-                {t.charAt(0).toUpperCase() + t.slice(1)}
-              </button>
-            ))}
+      <div className="map-controls visible">
+        <div className="ctrl-card toggle-card" tabIndex="0">
+          <div className="toggle-icon" title="Map Layers">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 12 12 17 22 12"></polyline><polyline points="2 17 12 22 22 17"></polyline></svg>
           </div>
-        </div>
-        <div className="ctrl-card">
-          <span className="ctrl-label">Style</span>
-          <div className="ctrl-pills">
-            {[{ k: 'dark', l: '🌙 Dark' }, { k: 'light', l: '☀️ Light' }, { k: 'night', l: '🌃 Night' }, { k: 'silver', l: '🩶 Silver' }].map(({ k, l }) => (
-              <button key={k} className={`ctrl-pill${mapState.theme === k ? ' active' : ''}`}
-                onClick={() => setMapState({ theme: k })}>
-                {l}
-              </button>
-            ))}
+          <div className="toggle-content layers-content">
+            <div className="layer-group vertical">
+              <span className="ctrl-label">Type</span>
+              <div className="radio-group">
+                {['roadmap', 'terrain', 'satellite', 'hybrid'].map((t) => (
+                  <label key={t} className="radio-label">
+                    <input type="radio" name="mapType" value={t} checked={mapState.type === t}
+                      onChange={() => setMapState({ type: t })} />
+                    <span className="radio-text">{t.charAt(0).toUpperCase() + t.slice(1)}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="layer-divider"></div>
+            <div className="layer-group vertical">
+              <span className="ctrl-label">Style</span>
+              <div className="radio-group">
+                {[{ k: 'dark', l: '🌙 Dark' }, { k: 'light', l: '☀️ Light' }, { k: 'night', l: '🌃 Night' }, { k: 'silver', l: '🩶 Silver' }].map(({ k, l }) => (
+                  <label key={k} className="radio-label">
+                    <input type="radio" name="mapStyle" value={k} checked={mapState.theme === k}
+                      onChange={() => setMapState({ theme: k })} />
+                    <span className="radio-text">{l}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Simulation controls */}
         {simulationVisible && (
           <div className="ctrl-card">
-            <span className="ctrl-label">Simulasi</span>
             <button className="ctrl-pill" onClick={toggleSimulation}>{simBtnText}</button>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '4px' }}>
               <span style={{ fontSize: '0.7rem' }}>⏱️</span>
@@ -270,14 +289,6 @@ export default function MapView() {
           </div>
         )}
       </div>
-
-      {/* Placeholder */}
-      {!hasRoutes && (
-        <div className="map-placeholder">
-          <div className="placeholder-icon">🗺</div>
-          <div className="placeholder-text">Peta akan muncul setelah pencarian rute</div>
-        </div>
-      )}
 
       {/* Loading overlay */}
       {loading && (
