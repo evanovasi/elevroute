@@ -276,19 +276,24 @@ export default function MapView() {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Simulation controls */}
-        {simulationVisible && (
+      {/* Simulation controls (Bottom Center) */}
+      {simulationVisible && (
+        <div className="sim-controls visible">
           <div className="ctrl-card">
             <button className="ctrl-pill" onClick={toggleSimulation}>{simBtnText}</button>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '4px' }}>
               <span style={{ fontSize: '0.7rem' }}>⏱️</span>
-              <input type="range" min="5" max="30" value={simDuration} step="1" style={{ width: '70px' }}
-                onChange={(e) => setSimDuration(parseInt(e.target.value))} />
+              <select className="opt-sel" style={{ padding: '2px 4px' }} value={simDuration} onChange={(e) => setSimDuration(parseInt(e.target.value))}>
+                <option value={5000}>5s</option>
+                <option value={10000}>10s</option>
+                <option value={20000}>20s</option>
+              </select>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Loading overlay */}
       {loading && (

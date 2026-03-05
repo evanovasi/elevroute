@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouteStore, COLORS } from '@/stores/routeStore';
 import { haversine } from '@/utils/math';
 
@@ -19,34 +18,13 @@ export default function Sidebar({ onFindRoutes }) {
   const allRoutes = useRouteStore((s) => s.allRoutes);
   const activeRouteIndex = useRouteStore((s) => s.activeRouteIndex);
   const selectRoute = useRouteStore((s) => s.selectRoute);
-
-  // Toggle state
-  const [isOpen, setIsOpen] = useState(true);
+  const isSidebarOpen = useRouteStore((s) => s.isSidebarOpen);
 
   const handleKeyDown = (e) => { if (e.key === 'Enter') onFindRoutes(); };
 
   return (
     <>
-      <button
-        className={`sidebar-toggle-btn ${isOpen ? 'is-open' : ''}`}
-        onClick={() => setIsOpen(!isOpen)}
-        title={isOpen ? "Tutup Sidebar" : "Buka Sidebar"}
-      >
-        {isOpen ? '◀' : '▶'}
-      </button>
-
-      <div className={`sidebar ${isOpen ? 'is-open' : ''}`}>
-
-
-      {/* Error Panel */}
-      {error && (
-        <div className="error-panel show">
-          <strong>⚠ {error.title}</strong>
-          <div dangerouslySetInnerHTML={{ __html: error.html }} />
-        </div>
-      )}
-
-      <div className="divider"></div>
+      <div className={`sidebar ${isSidebarOpen ? 'is-open' : ''}`}>
 
       {/* Route Inputs */}
       <div>
@@ -63,6 +41,14 @@ export default function Sidebar({ onFindRoutes }) {
           <input type="text" value={destination} onChange={(e) => setDestination(e.target.value)} placeholder="Cth: Puncak, Bogor" onKeyDown={handleKeyDown} />
         </div>
       </div>
+
+      {/* Error Panel */}
+      {error && (
+        <div className="error-panel show">
+          <strong>⚠ {error.title}</strong>
+          <div dangerouslySetInnerHTML={{ __html: error.html }} />
+        </div>
+      )}
 
       {/* Options */}
       <div>

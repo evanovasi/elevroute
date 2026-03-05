@@ -22,8 +22,9 @@ export const useRouteStore = create((set) => ({
   // Map objects (refs, not reactive — stored in refs in components)
   sdkLoaded: false,
 
-  // Mobile
+  // Mobile & Sidebar
   activeTab: 'rute',
+  isSidebarOpen: true,
 
   // Simulation
   simulationVisible: false,
@@ -57,4 +58,5 @@ export const useRouteStore = create((set) => ({
   }),
 
   setActiveTab: (tab) => set({ activeTab: tab }),
+  toggleSidebar: () => set((s) => ({ isSidebarOpen: !s.isSidebarOpen })),
 }));
