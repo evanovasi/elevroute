@@ -24,7 +24,7 @@ export default function MapView() {
   const simStartTimeRef = useRef(0);
 
   const [simState, setSimState] = useState('idle'); // idle | playing | paused
-  const [simDuration, setSimDuration] = useState(15);
+  const [simDuration, setSimDuration] = useState(10);
   const currentDistanceRef = useRef(0);
   const pathDistancesRef = useRef([]);
   const pathCoordsRef = useRef([]);
@@ -286,9 +286,10 @@ export default function MapView() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '4px' }}>
               <span style={{ fontSize: '0.7rem' }}>⏱️</span>
               <select className="opt-sel" style={{ padding: '2px 4px' }} value={simDuration} onChange={(e) => setSimDuration(parseInt(e.target.value))}>
-                <option value={5000}>5s</option>
-                <option value={10000}>10s</option>
-                <option value={20000}>20s</option>
+                <option value={5}>5s</option>
+                <option value={10}>10s</option>
+                <option value={15}>15s</option>
+                <option value={20}>20s</option>
               </select>
             </div>
           </div>
